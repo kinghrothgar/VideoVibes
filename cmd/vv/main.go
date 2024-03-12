@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"image"
 	"image/color"
@@ -60,6 +61,7 @@ func main() {
 
 	wg.Wait()
 
+	writeFrameData(frameColors)
 	createImg(frameColors, outFrames)
 }
 
@@ -124,6 +126,19 @@ func colorWindowAvg(frameColors []color.RGBA, window, position int) color.RGBA {
 	return color.RGBA{red, green, blue, 0xff}
 }
 
+func writeFrameData(frameColors []color.RGBA) {
+	data, err := json.Marshal(frameColors)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	f, _ := os.Create("frames.json")
+	if _, err := f.Write(data); err != nil {
+		log.Println(err)
+	}
+	f.Close()
+}
+
 func createImg(frameColors []color.RGBA, outFrames int) {
 	width := 200
 	height := outFrames
@@ -144,4 +159,5 @@ func createImg(frameColors []color.RGBA, outFrames int) {
 	// Encode as PNG.
 	f, _ := os.Create("image_limited.png")
 	png.Encode(f, img)
+	f.Close()
 }
