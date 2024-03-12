@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-func main() {
+func mainB() {
 	imgsPath := os.Args[1]
 	maxGoroutines, err := strconv.Atoi(os.Args[2])
 	if err != nil {
@@ -62,7 +62,30 @@ func main() {
 	wg.Wait()
 
 	writeFrameData(frameColors)
-	createImg(frameColors, outFrames)
+	createImg(frameColors, outFrames, 1)
+}
+
+func main() {
+	frameColorPath := os.Args[1]
+	outFrames, err := strconv.Atoi(os.Args[2])
+	if err != nil {
+		log.Fatal(err)
+	}
+	smoothing, err := strconv.Atoi(os.Args[3])
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	frameColorJSON, err := os.ReadFile(frameColorPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var frameColors []color.RGBA
+	err = json.Unmarshal(frameColorJSON, &frameColors)
+	if err != nil {
+		log.Fatal(err)
+	}
+	createImg(frameColors, outFrames, smoothing)
 }
 
 func setAvgColor(frameColors *[]color.RGBA, frame int, imgPath string) {
@@ -103,7 +126,7 @@ func setAvgColor(frameColors *[]color.RGBA, frame int, imgPath string) {
 	(*frameColors)[frame] = color.RGBA{red, green, blue, 0xff}
 }
 
-func colorWindowAvg(frameColors []color.RGBA, window, position int) color.RGBA {
+func colorWindowAvg(frameColors []color.RGBA, window, smoothing, position int) color.RGBA {
 	frameLen := len(frameColors)
 
 	var redSum float64
@@ -111,7 +134,7 @@ func colorWindowAvg(frameColors []color.RGBA, window, position int) color.RGBA {
 	var blueSum float64
 
 	startFrame := window * position
-	endFrame := min(startFrame+window, frameLen)
+	endFrame := min(startFrame+window*smoothing, frameLen)
 
 	for i := window * position; i < endFrame; i++ {
 		redSum += float64(frameColors[i].R)
@@ -139,9 +162,9 @@ func writeFrameData(frameColors []color.RGBA) {
 	f.Close()
 }
 
-func createImg(frameColors []color.RGBA, outFrames int) {
-	width := 200
-	height := outFrames
+func createImg(frameColors []color.RGBA, outFrames, smoothing int) {
+	width := outFrames
+	height := 500
 	window := len(frameColors) / outFrames
 
 	upLeft := image.Point{0, 0}
@@ -150,9 +173,9 @@ func createImg(frameColors []color.RGBA, outFrames int) {
 	img := image.NewRGBA(image.Rectangle{upLeft, lowRight})
 
 	// Set color for each pixel.
-	for x := 0; x < width; x++ {
-		for y := 0; y < height; y++ {
-			img.Set(x, y, colorWindowAvg(frameColors, window, y))
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			img.Set(x, y, colorWindowAvg(frameColors, window, smoothing, x))
 		}
 	}
 
