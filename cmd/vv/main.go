@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	_ "image/jpeg"
@@ -12,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"time"
 )
 
 func main() {
@@ -29,17 +31,24 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	imgsLen := len(imgs)
 
-	if len(imgs) < outFrames {
+	if imgsLen < outFrames {
 		log.Fatal("Number of frame images less than outFrames")
 	}
 
-	frameColors := make([]color.RGBA, len(imgs))
+	frameColors := make([]color.RGBA, imgsLen)
 
+	ticker := time.NewTicker(5 * time.Second)
 	var wg = sync.WaitGroup{}
 	guard := make(chan struct{}, maxGoroutines)
 	for i, img := range imgs {
 		guard <- struct{}{} // would block if guard channel is already filled
+		select {
+		case <-ticker.C:
+			fmt.Printf("%s - %d%% (%d/%d)\n", time.Now().Format("01-02-2006 15:04:05"), i/imgsLen, i, imgsLen)
+		default:
+		}
 		wg.Add(1)
 		imgPath := filepath.Join(imgsPath, img.Name())
 		go func(n int) {
