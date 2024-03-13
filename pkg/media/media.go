@@ -3,7 +3,6 @@ package media
 import (
 	"errors"
 	"fmt"
-	"image"
 
 	"github.com/zergon321/reisen"
 )
@@ -52,7 +51,7 @@ func (m *Media) Close() {
 	}
 }
 
-func (m *Media) Stream(frames chan *image.RGBA, e chan error) chan bool {
+func (m *Media) Stream(frames chan *reisen.VideoFrame, e chan error) chan bool {
 	done := make(chan bool)
 	go func() {
 		for {
@@ -85,8 +84,7 @@ func (m *Media) Stream(frames chan *image.RGBA, e chan error) chan bool {
 					continue
 				}
 
-				frames <- videoFrame.Image()
-			case reisen.StreamAudio:
+				frames <- videoFrame
 			}
 		}
 		done <- true

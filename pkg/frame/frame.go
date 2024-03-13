@@ -8,6 +8,8 @@ import (
 	"math"
 	"sync"
 	"time"
+
+	"github.com/zergon321/reisen"
 )
 
 func frameAvg(frame *image.RGBA) *color.RGBA {
@@ -37,7 +39,7 @@ func frameAvg(frame *image.RGBA) *color.RGBA {
 	return &color.RGBA{red, green, blue, 0xff}
 }
 
-func HandleFrames(frames chan *image.RGBA, colors *[]color.RGBA, maxGoroutines int, done chan bool) chan bool {
+func HandleFrames(frames chan *reisen.VideoFrame, colors *[]color.RGBA, maxGoroutines int, done chan bool) chan bool {
 	framesDone := make(chan bool)
 	// TODO buffer length?
 	colorsChan := make(chan *color.RGBA, maxGoroutines)
@@ -47,14 +49,23 @@ func HandleFrames(frames chan *image.RGBA, colors *[]color.RGBA, maxGoroutines i
 	go func() {
 		var wg = sync.WaitGroup{}
 		guard := make(chan struct{}, maxGoroutines)
+		ticker := time.NewTicker(1 * time.Second)
 	out:
 		for {
 			select {
 			case frame := <-frames:
 				guard <- struct{}{} // would block if guard channel is already filled
+
+				select {
+				case <-ticker.C:
+					fmt.Printf("%s - frames:%d handleFrameRutines:%d frameChan:%d\n", time.Now().Format("01-02-2006 15:04:05"), len(*colors), len(guard), len(frames))
+				default:
+				}
+
 				wg.Add(1)
 				go func() {
-					colorsChan <- frameAvg(frame)
+					image := frame.Image()
+					colorsChan <- frameAvg(image)
 					<-guard
 					wg.Done()
 				}()
@@ -64,7 +75,8 @@ func HandleFrames(frames chan *image.RGBA, colors *[]color.RGBA, maxGoroutines i
 					log.Println("handling last frames")
 					guard <- struct{}{}
 					frame := <-frames
-					colorsChan <- frameAvg(frame)
+					image := frame.Image()
+					colorsChan <- frameAvg(image)
 				}
 				colorsClose <- true
 				break out
@@ -82,17 +94,11 @@ func HandleFrames(frames chan *image.RGBA, colors *[]color.RGBA, maxGoroutines i
 func handleColors(colors *[]color.RGBA, colorsChan chan *color.RGBA, done chan bool) chan bool {
 	colorsDone := make(chan bool)
 	go func() {
-		ticker := time.NewTicker(5 * time.Second)
 	out:
 		for {
 			select {
 			case color := <-colorsChan:
 				*colors = append(*colors, *color)
-				select {
-				case <-ticker.C:
-					fmt.Printf("%s - %d\n", time.Now().Format("01-02-2006 15:04:05"), len(*colors))
-				default:
-				}
 			case <-done:
 				log.Println("handleColors notified done")
 				for len(colorsChan) > 0 {

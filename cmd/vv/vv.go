@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"image"
 	"image/color"
 	_ "image/jpeg"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/kinghrothgar/VideoVibes/pkg/frame"
 	"github.com/kinghrothgar/VideoVibes/pkg/media"
+	"github.com/zergon321/reisen"
 )
 
 var (
@@ -65,7 +65,7 @@ func main() {
 	}
 	defer m.Close()
 
-	frames := make(chan *image.RGBA, frameBufferSize)
+	frames := make(chan *reisen.VideoFrame, frameBufferSize)
 	echan := make(chan error, frameBufferSize)
 	mediaDone := make(chan bool)
 	frameColors := []color.RGBA{}
@@ -77,8 +77,6 @@ func main() {
 	mediaDone <- true
 	<-framesDone
 	log.Println("frames proccessing done")
-
-	fmt.Printf("%+v", frameColors)
 
 	writeFrameData(frameColors)
 	createImg(frameColors, width, height, smoothing)
