@@ -13,9 +13,8 @@ import (
 	"runtime/pprof"
 	"strconv"
 
+	vidio "github.com/AlexEidt/Vidio"
 	"github.com/kinghrothgar/VideoVibes/pkg/frame"
-	"github.com/kinghrothgar/VideoVibes/pkg/media"
-	"github.com/zergon321/reisen"
 )
 
 var (
@@ -27,6 +26,22 @@ var (
 	pngName         = "out.png"
 )
 
+func stream(video *vidio.Video, frames chan *image.RGBA, e chan error) chan bool {
+
+	done := make(chan bool)
+	go func() {
+		img := image.NewRGBA(image.Rect(0, 0, video.Width(), video.Height()))
+		video.SetFrameBuffer(img.Pix)
+
+		for video.Read() {
+			imgCopy := img
+			frames <- imgCopy
+		}
+		done <- true
+	}()
+	return done
+}
+
 func main() {
 	f, err := os.Create("profile")
 	if err != nil {
@@ -35,7 +50,7 @@ func main() {
 	pprof.StartCPUProfile(f)
 	defer pprof.StopCPUProfile()
 
-	m, err := media.NewMedia(os.Args[1])
+	video, err := vidio.NewVideo(os.Args[1])
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -60,18 +75,15 @@ func main() {
 		}
 	}
 
-	if err := m.Open(); err != nil {
-		log.Printf("failed to open decode media: %w", err)
-	}
-	defer m.Close()
+	defer video.Close()
 
-	frames := make(chan *reisen.VideoFrame, frameBufferSize)
+	frames := make(chan *image.RGBA, frameBufferSize)
 	echan := make(chan error, frameBufferSize)
 	mediaDone := make(chan bool)
 	frameColors := []color.RGBA{}
 	go handleErrors(echan)
 	framesDone := frame.HandleFrames(frames, &frameColors, maxGoroutines, mediaDone)
-	mDone := m.Stream(frames, echan)
+	mDone := stream(video, frames, echan)
 	<-mDone
 	log.Println("media reading done")
 	mediaDone <- true

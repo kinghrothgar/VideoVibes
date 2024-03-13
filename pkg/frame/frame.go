@@ -8,8 +8,6 @@ import (
 	"math"
 	"sync"
 	"time"
-
-	"github.com/zergon321/reisen"
 )
 
 func frameAvg(frame *image.RGBA) *color.RGBA {
@@ -39,7 +37,7 @@ func frameAvg(frame *image.RGBA) *color.RGBA {
 	return &color.RGBA{red, green, blue, 0xff}
 }
 
-func HandleFrames(frames chan *reisen.VideoFrame, colors *[]color.RGBA, maxGoroutines int, done chan bool) chan bool {
+func HandleFrames(frames chan *image.RGBA, colors *[]color.RGBA, maxGoroutines int, done chan bool) chan bool {
 	framesDone := make(chan bool)
 	// TODO buffer length?
 	colorsChan := make(chan *color.RGBA, maxGoroutines)
@@ -64,8 +62,7 @@ func HandleFrames(frames chan *reisen.VideoFrame, colors *[]color.RGBA, maxGorou
 
 				wg.Add(1)
 				go func() {
-					image := frame.Image()
-					colorsChan <- frameAvg(image)
+					colorsChan <- frameAvg(frame)
 					<-guard
 					wg.Done()
 				}()
@@ -75,8 +72,7 @@ func HandleFrames(frames chan *reisen.VideoFrame, colors *[]color.RGBA, maxGorou
 					log.Println("handling last frames")
 					guard <- struct{}{}
 					frame := <-frames
-					image := frame.Image()
-					colorsChan <- frameAvg(image)
+					colorsChan <- frameAvg(frame)
 				}
 				colorsClose <- true
 				break out
