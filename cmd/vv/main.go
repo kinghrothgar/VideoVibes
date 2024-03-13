@@ -17,26 +17,66 @@ import (
 	"time"
 )
 
-func mainB() {
-	imgsPath := os.Args[1]
-	maxGoroutines, err := strconv.Atoi(os.Args[2])
-	if err != nil {
-		log.Fatal(err)
-	}
-	outFrames, err := strconv.Atoi(os.Args[3])
-	if err != nil {
-		log.Fatal(err)
+var (
+	maxGoroutines = 32
+	width         = 5120
+	height        = 1440
+	smoothing     = 1
+)
+
+func main() {
+	path := os.Args[1]
+
+	var err error
+	if len(os.Args) >= 3 {
+		width, err = strconv.Atoi(os.Args[2])
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
+	if len(os.Args) >= 4 {
+		height, err = strconv.Atoi(os.Args[3])
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	if len(os.Args) >= 5 {
+		smoothing, err = strconv.Atoi(os.Args[4])
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	var frameColors []color.RGBA
+	if isDir, err := IsDirectory(path); err != nil {
+		log.Fatal(err)
+	} else if isDir {
+		frameColors = proccessPNGS(path)
+	} else {
+		frameColors = processFrameData(path)
+	}
+	if len(frameColors) < width {
+		log.Fatal("Number of frame images less than width")
+	}
+
+	createImg(frameColors, width, height, smoothing)
+}
+
+func IsDirectory(path string) (bool, error) {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+	return fileInfo.IsDir(), err
+}
+
+func proccessPNGS(imgsPath string) []color.RGBA {
 	imgs, err := os.ReadDir(imgsPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 	imgsLen := len(imgs)
-
-	if imgsLen < outFrames {
-		log.Fatal("Number of frame images less than outFrames")
-	}
 
 	frameColors := make([]color.RGBA, imgsLen)
 
@@ -47,7 +87,8 @@ func mainB() {
 		guard <- struct{}{} // would block if guard channel is already filled
 		select {
 		case <-ticker.C:
-			fmt.Printf("%s - %d%% (%d/%d)\n", time.Now().Format("01-02-2006 15:04:05"), i/imgsLen, i, imgsLen)
+			percentage := int(math.Round(100 * float64(i) / float64(imgsLen)))
+			fmt.Printf("%s - %d%% (%d/%d)\n", time.Now().Format("01-02-2006 15:04:05"), percentage, i, imgsLen)
 		default:
 		}
 		wg.Add(1)
@@ -62,20 +103,10 @@ func mainB() {
 	wg.Wait()
 
 	writeFrameData(frameColors)
-	createImg(frameColors, outFrames, 1)
+	return frameColors
 }
 
-func main() {
-	frameColorPath := os.Args[1]
-	outFrames, err := strconv.Atoi(os.Args[2])
-	if err != nil {
-		log.Fatal(err)
-	}
-	smoothing, err := strconv.Atoi(os.Args[3])
-	if err != nil {
-		log.Fatal(err)
-	}
-
+func processFrameData(frameColorPath string) []color.RGBA {
 	frameColorJSON, err := os.ReadFile(frameColorPath)
 	if err != nil {
 		log.Fatal(err)
@@ -85,7 +116,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	createImg(frameColors, outFrames, smoothing)
+	return frameColors
 }
 
 func setAvgColor(frameColors *[]color.RGBA, frame int, imgPath string) {
@@ -162,10 +193,8 @@ func writeFrameData(frameColors []color.RGBA) {
 	f.Close()
 }
 
-func createImg(frameColors []color.RGBA, outFrames, smoothing int) {
-	width := outFrames
-	height := 500
-	window := len(frameColors) / outFrames
+func createImg(frameColors []color.RGBA, width, height, smoothing int) {
+	window := len(frameColors) / width
 
 	upLeft := image.Point{0, 0}
 	lowRight := image.Point{width, height}
