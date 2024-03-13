@@ -11,6 +11,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"runtime/pprof"
 	"strconv"
 
 	"github.com/kinghrothgar/VideoVibes/pkg/frame"
@@ -18,8 +19,8 @@ import (
 )
 
 var (
-	frameBufferSize = 1024
-	maxGoroutines   = 32
+	frameBufferSize = 2048
+	maxGoroutines   = 128
 	width           = 5120
 	height          = 1440
 	smoothing       = 1
@@ -27,7 +28,13 @@ var (
 )
 
 func main() {
-	// Open the media file.
+	f, err := os.Create("profile")
+	if err != nil {
+		log.Fatal(err)
+	}
+	pprof.StartCPUProfile(f)
+	defer pprof.StopCPUProfile()
+
 	m, err := media.NewMedia(os.Args[1])
 	if err != nil {
 		log.Fatal(err)
