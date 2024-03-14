@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"image"
 	"image/color"
 	_ "image/jpeg"
@@ -12,6 +13,7 @@ import (
 	"os"
 	"runtime/pprof"
 	"strconv"
+	"time"
 
 	vidio "github.com/AlexEidt/Vidio"
 	"github.com/kinghrothgar/VideoVibes/pkg/frame"
@@ -33,9 +35,17 @@ func stream(video *vidio.Video, frames chan *image.RGBA, e chan error) chan bool
 		img := image.NewRGBA(image.Rect(0, 0, video.Width(), video.Height()))
 		video.SetFrameBuffer(img.Pix)
 
+		i := 1
+		ticker := time.NewTicker(1 * time.Second)
 		for video.Read() {
 			imgCopy := img
 			frames <- imgCopy
+			select {
+			case <-ticker.C:
+				fmt.Printf("%s - %d\n", time.Now().Format("01-02-2006 15:04:05"), i)
+			default:
+			}
+			i++
 		}
 		done <- true
 	}()

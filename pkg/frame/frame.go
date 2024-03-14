@@ -1,13 +1,11 @@
 package frame
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"log"
 	"math"
 	"sync"
-	"time"
 )
 
 func frameAvg(frame *image.RGBA) *color.RGBA {
@@ -47,19 +45,11 @@ func HandleFrames(frames chan *image.RGBA, colors *[]color.RGBA, maxGoroutines i
 	go func() {
 		var wg = sync.WaitGroup{}
 		guard := make(chan struct{}, maxGoroutines)
-		ticker := time.NewTicker(1 * time.Second)
 	out:
 		for {
 			select {
 			case frame := <-frames:
 				guard <- struct{}{} // would block if guard channel is already filled
-
-				select {
-				case <-ticker.C:
-					fmt.Printf("%s - frames:%d handleFrameRutines:%d frameChan:%d\n", time.Now().Format("01-02-2006 15:04:05"), len(*colors), len(guard), len(frames))
-				default:
-				}
-
 				wg.Add(1)
 				go func() {
 					colorsChan <- frameAvg(frame)
